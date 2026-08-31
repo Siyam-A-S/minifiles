@@ -44,11 +44,18 @@ def build_statefulset(volume: Volume) -> client.V1StatefulSet:
                     containers=[
                         client.V1Container(
                             name="nfs-server",
+                            # Userspace NFSv4 server (Ganesha): unprivileged,
+                            # exports /exports per data-plane/ganesha.conf.
                             image=settings.nfs_image,
                             ports=[client.V1ContainerPort(container_port=2049, name="nfs")],
-                            env=[client.V1EnvVar(name="SHARED_DIRECTORY", value="/exports")],
-                            # Kernel NFS server needs privileged access to nfsd.
-                            security_context=client.V1SecurityContext(privileged=True),
+                            # Gate pod Ready on actually serving NFS — without
+                            # this, a crash-looping server briefly reports
+                            # Ready and the volume goes AVAILABLE prematurely.
+                            readiness_probe=client.V1Probe(
+                                tcp_socket=client.V1TCPSocketAction(port=2049),
+                                period_seconds=2,
+                                failure_threshold=3,
+                            ),
                             volume_mounts=[
                                 client.V1VolumeMount(name="data", mount_path="/exports")
                             ],

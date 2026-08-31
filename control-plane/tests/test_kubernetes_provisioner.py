@@ -91,8 +91,9 @@ def test_statefulset_manifest_shape():
     claim = sts.spec.volume_claim_templates[0]
     assert claim.spec.resources.requests["storage"] == "5Gi"
     container = sts.spec.template.spec.containers[0]
-    assert container.security_context.privileged is True
+    assert container.security_context is None  # Ganesha is userspace: unprivileged
     assert container.ports[0].container_port == 2049
+    assert container.readiness_probe.tcp_socket.port == 2049
 
 
 def test_service_manifest_shape():

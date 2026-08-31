@@ -11,15 +11,48 @@ jsonval() { python3 -c "import sys,json;print(json.load(sys.stdin)[\"$1\"])"; }
 
 step() { printf '\n== %s\n' "$*"; }
 
+wait_healthz() {
+  # plain poll: curl --retry doesn't cover connection-reset, which the
+  # Recreate strategy produces while no pod is serving
+  for _ in $(seq 1 60); do
+    curl -sf "$API/healthz" >/dev/null 2>&1 && return 0
+    sleep 2
+  done
+  echo "FAIL: control plane not responding on $API"
+  return 1
+}
+
 step "cluster + deploy"
 kind get clusters 2>/dev/null | grep -qx minifiles || make kind-up
 make deploy-local
 kubectl -n "$NS" rollout status deploy/control-plane --timeout=180s
-curl -sf --retry 30 --retry-connrefused --retry-delay 2 "$API/healthz" >/dev/null
+wait_healthz
+
+step "clean leftovers from previous runs"
+# The dev cluster is disposable: reap the client pod and any orphaned
+# data-plane resources (the in-memory store forgets volumes on redeploy).
+kubectl -n "$NS" delete pod m1-client --ignore-not-found --now
+kubectl -n "$NS" delete sts,svc,pvc -l "minifiles.io/volume-id" --ignore-not-found
+# The store is in-memory: restart the control plane so its state matches the
+# cleaned cluster (and so ConfigMap changes are picked up).
+kubectl -n "$NS" rollout restart deploy/control-plane
+kubectl -n "$NS" rollout status deploy/control-plane --timeout=120s
+wait_healthz
 
 step "create volume"
-VOL_ID=$(curl -sf -X POST "$API/v1/volumes" -H 'content-type: application/json' \
-  -d '{"name":"m1-accept","size_gib":1,"service_level":"standard"}' | jsonval id)
+# Retry: right after a rollout restart the NodePort can briefly route to the
+# terminating pod. Unique name so a half-landed earlier attempt can't 409 us.
+VOL_NAME="m1-accept-$(date +%s)"
+VOL_ID=""
+for _ in $(seq 1 10); do
+  if VOL_ID=$(curl -sf -X POST "$API/v1/volumes" -H 'content-type: application/json' \
+      -d "{\"name\":\"$VOL_NAME\",\"size_gib\":1,\"service_level\":\"standard\"}" | jsonval id) \
+      && [ -n "$VOL_ID" ]; then
+    break
+  fi
+  sleep 2
+done
+[ -n "$VOL_ID" ] || { echo "FAIL: could not create volume"; exit 1; }
 echo "volume: $VOL_ID"
 
 step "wait for AVAILABLE"

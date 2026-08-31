@@ -5,6 +5,10 @@ metadata:
   namespace: minifiles
 spec:
   replicas: 1  # in-memory store; do not scale until a real store lands
+  # Recreate: with an in-memory store, an old and new pod must never serve
+  # at the same time (requests would see two divergent stores).
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: control-plane
@@ -14,6 +18,9 @@ spec:
         app: control-plane
     spec:
       serviceAccountName: control-plane
+      # Cap shutdown: background reconcile loops may be mid-poll; don't let
+      # graceful drain hold the (single) replica slot for minutes.
+      terminationGracePeriodSeconds: 10
       containers:
         - name: control-plane
           image: minifiles/control-plane:dev
@@ -61,6 +68,6 @@ data:
   MINIFILES_MAX_TOTAL_GIB: "100"
   MINIFILES_PROVISIONER: "memory"  # dev overlay flips this to "kubernetes"
   MINIFILES_NAMESPACE: "minifiles"
-  MINIFILES_NFS_IMAGE: "itsthenetwork/nfs-server-alpine:12"
+  MINIFILES_NFS_IMAGE: "minifiles/nfs-ganesha:dev"
   MINIFILES_STORAGE_CLASS: "standard"
   MINIFILES_PROVISION_TIMEOUT_S: "120"

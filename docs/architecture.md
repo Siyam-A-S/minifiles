@@ -31,12 +31,18 @@ Quota is enforced at the API layer: total provisioned GiB across volumes must
 stay under `MINIFILES_MAX_TOTAL_GIB` (a stand-in for ANF's capacity-pool model —
 if a pool abstraction is added later, quota moves there).
 
-### Data plane (`deploy/k8s/`)
+### Data plane (`data-plane/`, provisioned dynamically)
 
-One NFS server pod per volume (M1 target), backed by a PVC — `local-path` on
-kind, Azure Disk on AKS. The pod template lives in the provisioner, not in
-static manifests, because volumes are dynamic. Static manifests cover the
-control plane, tiering engine, namespace, and RBAC.
+One NFS server pod per volume, backed by a PVC — `local-path` on kind, Azure
+Disk on AKS. The server is **NFS-Ganesha (userspace, NFSv4-only)** built in
+`data-plane/Dockerfile`: kernel knfsd inside kind/CI containers is unreliable
+(module availability, overlayfs export limits) and needs privileged pods,
+while Ganesha runs unprivileged with no added capabilities. Pod `Ready` is
+gated on a TCP:2049 readiness probe — the control plane marks a volume
+`available` only when the server actually accepts connections. The pod
+template lives in the provisioner (`control-plane/app/kube.py`), not in static
+manifests, because volumes are dynamic. Static manifests cover the control
+plane, tiering engine, namespace, and RBAC.
 
 ### Tiering engine (`tiering-engine/`)
 

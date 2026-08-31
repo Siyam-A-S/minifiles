@@ -33,6 +33,7 @@ enough to run on a single-node AKS cluster.
 |---|---|
 | `control-plane/` | FastAPI service: `/v1/volumes`, `/v1/volumes/{id}/snapshots`, quota enforcement, provisioner interface (in-memory now, Kubernetes next) |
 | `tiering-engine/` | Background scanner that walks volume mounts, finds cold files by access time, tiers them to a target (local archive dir now, Azure Blob next), and writes stub metadata for rehydration |
+| `data-plane/` | The per-volume NFS server image: NFS-Ganesha, userspace, NFSv4-only, unprivileged |
 | `deploy/kind/` | Local dev cluster config |
 | `deploy/k8s/` | Kustomize manifests: base + `dev` (kind) and `azure` (AKS) overlays |
 | `docs/` | Architecture, roadmap with milestone acceptance criteria, Azure cost guardrails |
@@ -58,8 +59,13 @@ curl -s -X POST localhost:8471/v1/volumes \
 ```sh
 make kind-up        # create the kind cluster
 make deploy-local   # build images, load into kind, kustomize apply
+make accept-m1      # M1 acceptance: create → NFS-mount → write → delete
 make destroy        # tear everything down
 ```
+
+Note: `accept-m1` mounts NFS via the node kernel, so the host needs NFS client
+support. Containerized dev hosts often block this — the `acceptance` GitHub
+Actions workflow runs the same script on a real VM.
 
 ## Roadmap
 
