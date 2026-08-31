@@ -1,0 +1,6 @@
+# M3: AKS overlay. Will add: images: pinned ACR tags (bumped by CI, synced by
+# Argo CD), ingress, and the kube-prometheus-stack ServiceMonitors.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base

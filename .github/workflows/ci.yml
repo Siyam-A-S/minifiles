@@ -1,0 +1,35 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [control-plane, tiering-engine]
+    defaults:
+      run:
+        working-directory: ${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e '.[dev]'
+      - run: ruff check .
+      - run: pytest -q
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        service: [control-plane, tiering-engine]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t minifiles/${{ matrix.service }}:${{ github.sha }} ${{ matrix.service }}
+      # M3: log in to ACR and push; bump the image tag in deploy/k8s/overlays/azure

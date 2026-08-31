@@ -1,0 +1,13 @@
+# kind: expose the control plane on the host via the port mapping in
+# deploy/kind/cluster.yaml (30080 -> localhost:8471).
+apiVersion: v1
+kind: Service
+metadata:
+  name: control-plane
+  namespace: minifiles
+spec:
+  type: NodePort
+  ports:
+    - port: 8000
+      targetPort: 8000
+      nodePort: 30080

@@ -1,0 +1,16 @@
+[project]
+name = "minifiles-tiering-engine"
+version = "0.1.0"
+description = "MiniFiles tiering engine: cold-data scanner and tier targets"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+azure = ["azure-storage-blob>=12.20"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

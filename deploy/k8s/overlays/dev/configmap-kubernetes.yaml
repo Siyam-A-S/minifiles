@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: control-plane-config
+  namespace: minifiles
+data:
+  MINIFILES_PROVISIONER: "kubernetes"

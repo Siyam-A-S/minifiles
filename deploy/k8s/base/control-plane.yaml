@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: control-plane
+  namespace: minifiles
+spec:
+  replicas: 1  # in-memory store; do not scale until a real store lands
+  selector:
+    matchLabels:
+      app: control-plane
+  template:
+    metadata:
+      labels:
+        app: control-plane
+    spec:
+      serviceAccountName: control-plane
+      containers:
+        - name: control-plane
+          image: minifiles/control-plane:dev
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: control-plane-config
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: control-plane
+  namespace: minifiles
+spec:
+  selector:
+    app: control-plane
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: control-plane-config
+  namespace: minifiles
+data:
+  MINIFILES_MAX_TOTAL_GIB: "100"
+  MINIFILES_PROVISIONER: "memory"  # dev overlay flips this to "kubernetes"
+  MINIFILES_NAMESPACE: "minifiles"
+  MINIFILES_NFS_IMAGE: "itsthenetwork/nfs-server-alpine:12"
+  MINIFILES_STORAGE_CLASS: "standard"
+  MINIFILES_PROVISION_TIMEOUT_S: "120"

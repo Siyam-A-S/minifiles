@@ -1,0 +1,29 @@
+name: acceptance
+
+# M1 acceptance needs a real kernel (NFS server/client modules) and Docker —
+# GitHub's ubuntu runners have both, so this also covers dev machines that
+# can't run kernel NFS locally.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  accept-m1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kind and kubectl
+        run: |
+          curl -sLo kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+          curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kind kubectl && sudo mv kind kubectl /usr/local/bin/
+      - name: Load NFS kernel modules
+        run: sudo modprobe nfs && sudo modprobe nfsd
+      - run: make accept-m1
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          kubectl -n minifiles get all,pvc,events --sort-by=.lastTimestamp || true
+          kubectl -n minifiles logs deploy/control-plane --tail=100 || true
