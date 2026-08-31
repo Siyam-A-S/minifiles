@@ -6,7 +6,11 @@ FROM debian:stable-slim
 RUN apt-get update \
     && apt-get install -y --no-install-recommends nfs-ganesha nfs-ganesha-vfs \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /exports /var/run/ganesha
+    && mkdir -p /exports /var/run/ganesha \
+    # Ganesha's VFS FSAL enumerates filesystems via setmntent(/etc/mtab);
+    # the symlink normally created by systemd doesn't exist in containers,
+    # and without it every export fails to create (server runs export-less).
+    && ln -sf /proc/self/mounts /etc/mtab
 COPY ganesha.conf /etc/ganesha/ganesha.conf
 EXPOSE 2049
 CMD ["ganesha.nfsd", "-F", "-L", "/dev/stderr", "-f", "/etc/ganesha/ganesha.conf"]
