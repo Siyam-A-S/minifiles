@@ -68,6 +68,6 @@ data:
   MINIFILES_MAX_TOTAL_GIB: "100"
   MINIFILES_PROVISIONER: "memory"  # dev overlay flips this to "kubernetes"
   MINIFILES_NAMESPACE: "minifiles"
-  MINIFILES_NFS_IMAGE: "minifiles/nfs-ganesha:dev"
+  MINIFILES_NFS_IMAGE: "minifiles/nfs-godzilla:dev"
   MINIFILES_STORAGE_CLASS: "standard"
   MINIFILES_PROVISION_TIMEOUT_S: "120"

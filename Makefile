@@ -28,10 +28,10 @@ kind-up:
 deploy-local:
 	docker build -t minifiles/control-plane:dev control-plane
 	docker build -t minifiles/tiering-engine:dev tiering-engine
-	docker build -t minifiles/nfs-ganesha:dev data-plane
+	docker build -t minifiles/nfs-godzilla:dev data-plane
 	kind load docker-image minifiles/control-plane:dev --name minifiles
 	kind load docker-image minifiles/tiering-engine:dev --name minifiles
-	kind load docker-image minifiles/nfs-ganesha:dev --name minifiles
+	kind load docker-image minifiles/nfs-godzilla:dev --name minifiles
 	kubectl apply -k deploy/k8s/overlays/dev
 
 accept-m1:

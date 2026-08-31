@@ -44,11 +44,12 @@ def build_statefulset(volume: Volume) -> client.V1StatefulSet:
                     containers=[
                         client.V1Container(
                             name="nfs-server",
-                            # Userspace NFSv4 server (Ganesha): unprivileged,
-                            # exports /exports per data-plane/ganesha.conf.
+                            # NFS-godzilla, our userspace NFSv4 server:
+                            # unprivileged, exports /exports per
+                            # data-plane/godzilla.conf.
                             image=settings.nfs_image,
                             ports=[client.V1ContainerPort(container_port=2049, name="nfs")],
-                            # Ganesha's VFS FSAL opens files by handle
+                            # The server's VFS FSAL opens files by handle
                             # (open_by_handle_at), which needs exactly this
                             # capability — everything else stays dropped.
                             security_context=client.V1SecurityContext(

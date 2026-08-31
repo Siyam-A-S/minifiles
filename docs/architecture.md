@@ -34,10 +34,11 @@ if a pool abstraction is added later, quota moves there).
 ### Data plane (`data-plane/`, provisioned dynamically)
 
 One NFS server pod per volume, backed by a PVC — `local-path` on kind, Azure
-Disk on AKS. The server is **NFS-Ganesha (userspace, NFSv4-only)** built in
-`data-plane/Dockerfile`: kernel knfsd inside kind/CI containers is unreliable
-(module availability, overlayfs export limits) and needs privileged pods,
-while Ganesha runs unprivileged with no added capabilities. Pod `Ready` is
+Disk on AKS. The server is **NFS-godzilla** — our userspace NFSv4-only server
+image built in `data-plane/Dockerfile` on top of the nfs-ganesha
+implementation: kernel knfsd inside kind/CI containers is unreliable (module
+availability, overlayfs export limits) and needs privileged pods, while a
+userspace server runs unprivileged. Pod `Ready` is
 gated on a TCP:2049 readiness probe — the control plane marks a volume
 `available` only when the server actually accepts connections. The pod
 template lives in the provisioner (`control-plane/app/kube.py`), not in static

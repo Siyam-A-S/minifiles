@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     max_total_gib: int = 100
     provisioner: str = "memory"  # "memory" | "kubernetes"
     namespace: str = "minifiles"
-    nfs_image: str = "minifiles/nfs-ganesha:dev"
+    nfs_image: str = "minifiles/nfs-godzilla:dev"
     storage_class: str = "standard"  # kind's default local-path provisioner
     provision_timeout_s: float = 120
     poll_interval_s: float = 2

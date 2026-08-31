@@ -28,7 +28,7 @@ jobs:
           kubectl -n minifiles get all,pvc || true
           kubectl -n minifiles get events | tail -30 || true
           kubectl -n minifiles describe pod m1-client | tail -25 || true
-          echo "=== data-plane (ganesha) logs ==="
+          echo "=== data-plane (nfs-godzilla) logs ==="
           for p in $(kubectl -n minifiles get pods -l minifiles.io/volume-id -o name); do
             kubectl -n minifiles logs "$p" --tail=80 || true
           done
