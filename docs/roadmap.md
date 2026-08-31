@@ -11,15 +11,19 @@ only when the criteria pass. Estimated effort assumes weekend work.
       tests pass.
 - [x] Kustomize base + kind overlay, CI (lint + tests + image builds), Makefile.
 
-## M1 — Real data plane on kind (1–2 weekends)
+## M1 — Real data plane on kind (done 2026-08-31)
 
-- [ ] `KubernetesProvisioner`: `POST /v1/volumes` creates an NFS server pod
+- [x] `KubernetesProvisioner`: `POST /v1/volumes` creates an NFS server pod
       (StatefulSet + PVC + Service) in the cluster; `DELETE` tears it down.
-- [ ] Volume state reflects pod readiness (creating → available).
-- [ ] An in-cluster client pod can mount the NFS export and write files.
-- [ ] Liveness/readiness probes, resource requests/limits on everything.
-- **Acceptance**: `make deploy-local`, create a volume via curl, mount it from a
+- [x] Volume state reflects pod readiness (creating → available), gated on a
+      TCP:2049 readiness probe.
+- [x] An in-cluster client pod can mount the NFS export and write files.
+- [x] Liveness/readiness probes, resource requests/limits on everything.
+- **Acceptance**: `make accept-m1` — create a volume via curl, mount it from a
   busybox pod, write a file, delete the volume, PVC is gone.
+  **Passed** in the `acceptance` GitHub Actions workflow (run 33447141049);
+  local dev hosts without kernel NFS client support can't run the mount step —
+  CI is the reference environment.
 
 ## M2 — Tiering to Azure Blob + rehydration (1–2 weekends)
 
