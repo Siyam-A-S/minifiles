@@ -44,7 +44,7 @@ def test_reconcile_reaches_available_with_export_path():
     kube.ready = True
     _provisioner(kube).reconcile(vol)
     assert vol.state == VolumeState.AVAILABLE
-    assert vol.export_path == f"{vol.id}.minifiles.svc.cluster.local:/"
+    assert vol.export_path == f"{vol.id}.minifiles.svc.cluster.local:/data"
 
 
 def test_reconcile_times_out_to_error():

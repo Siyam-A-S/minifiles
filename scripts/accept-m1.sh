@@ -84,7 +84,7 @@ spec:
     - name: vol
       nfs:
         server: $CLUSTER_IP
-        path: /
+        path: /data
 EOF
 kubectl -n "$NS" wait --for=condition=Ready pod/m1-client --timeout=120s
 kubectl -n "$NS" exec m1-client -- sh -c 'echo hello-m1 > /mnt/vol/accept.txt && cat /mnt/vol/accept.txt' \

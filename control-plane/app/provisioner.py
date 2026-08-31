@@ -78,7 +78,8 @@ class KubernetesProvisioner:
             if volume.state != VolumeState.CREATING:
                 return  # deleted (or errored) while we were waiting
             if self.kube.pod_ready(volume.id):
-                volume.export_path = f"{volume.id}.{settings.namespace}.svc.cluster.local:/"
+                # /data = the export's Pseudo path in data-plane/ganesha.conf
+                volume.export_path = f"{volume.id}.{settings.namespace}.svc.cluster.local:/data"
                 volume.state = VolumeState.AVAILABLE
                 return
             time.sleep(self.poll_interval_s)
