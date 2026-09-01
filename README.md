@@ -18,6 +18,8 @@ flowchart LR
     tier -->|metadata index| cp
 ```
 
+![MiniFiles Grafana dashboard: volumes by state, provisioned capacity, API p95 latency, and bytes tiered to Azure Blob](assets/grafana-minifiles.png)
+
 ## Why this exists
 
 Cloud file services separate a control plane (API, resource lifecycle, quotas,

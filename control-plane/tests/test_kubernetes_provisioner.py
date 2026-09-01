@@ -128,6 +128,7 @@ def test_tiering_cronjob_manifest_shape():
     assert container.args[0] == "tier"
     assert f"{vol.id}/" in container.args  # per-volume blob key prefix
     assert container.env_from[0].secret_ref.name == "minifiles-azure"
+    assert container.security_context.run_as_user == 0  # must replace any user's files
 
 
 def test_rehydrate_job_manifest_shape():

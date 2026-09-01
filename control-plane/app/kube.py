@@ -118,6 +118,12 @@ def _tiering_pod_spec(volume: Volume, args: list[str]) -> client.V1PodSpec:
                         name="MINIFILES_PUSHGATEWAY_URL", value=settings.pushgateway_url
                     )
                 ],
+                # The image defaults to `nobody`, but tiering replaces files
+                # owned by arbitrary volume users in root-owned directories —
+                # the agent must run as root (found the hard way on AKS,
+                # where managed-disk dirs are root:755 unlike kind's 0777
+                # local-path dirs).
+                security_context=client.V1SecurityContext(run_as_user=0),
                 volume_mounts=[client.V1VolumeMount(name="vol", mount_path="/mnt/vol")],
                 resources=client.V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "64Mi"},

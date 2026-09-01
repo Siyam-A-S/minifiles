@@ -48,7 +48,8 @@ helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
   --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
   --set grafana.sidecar.dashboards.searchNamespace=ALL
 helm upgrade --install pushgateway prometheus-community/prometheus-pushgateway \
-  --namespace monitoring --wait --timeout 5m
+  --namespace monitoring --wait --timeout 5m \
+  --set serviceMonitor.enabled=true
 
 step "azure tiering secret"
 kubectl create namespace minifiles --dry-run=client -o yaml | kubectl apply -f -
