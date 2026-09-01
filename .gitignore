@@ -6,3 +6,7 @@ __pycache__/
 *.egg-info/
 .terraform/
 *.tfstate*
+
+# personal notes — never pushed
+docs/
+CLAUDE.md

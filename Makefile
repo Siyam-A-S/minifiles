@@ -37,5 +37,8 @@ deploy-local:
 accept-m1:
 	bash scripts/accept-m1.sh
 
+accept-m2:
+	bash scripts/accept-m2.sh
+
 destroy:
 	kind delete cluster --name minifiles

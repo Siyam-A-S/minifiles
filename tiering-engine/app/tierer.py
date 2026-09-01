@@ -42,14 +42,43 @@ class LocalArchiveTarget:
 
 
 class AzureBlobTarget:
-    """M2: azure-storage-blob upload to the cool tier.
+    """Tier target backed by Azure Blob Storage, cool tier.
 
-    Plan: container per volume, key = relative path; set StandardBlobTier.COOL
-    on upload; SAS/managed identity for auth. See docs/roadmap.md M2.
+    Keys are volume-relative paths; the caller scopes blobs per volume by
+    prefixing the key (see main.py --key-prefix). The azure dependency is
+    optional (`pip install -e '.[azure]'`) and imported lazily so local-only
+    use never needs it.
     """
 
-    def __init__(self, container_url: str) -> None:
-        raise NotImplementedError("M2 — see docs/roadmap.md")
+    def __init__(self, container_client, key_prefix: str = "") -> None:
+        self.container = container_client
+        self.key_prefix = key_prefix
+
+    @classmethod
+    def from_connection_string(
+        cls, conn_str: str, container: str, key_prefix: str = ""
+    ) -> "AzureBlobTarget":
+        from azure.storage.blob import ContainerClient
+
+        return cls(
+            ContainerClient.from_connection_string(conn_str, container),
+            key_prefix=key_prefix,
+        )
+
+    def _blob_key(self, key: str) -> str:
+        return f"{self.key_prefix}{key}"
+
+    def upload(self, key: str, path: Path) -> str:
+        from azure.storage.blob import StandardBlobTier
+
+        blob = self.container.get_blob_client(self._blob_key(key))
+        with path.open("rb") as f:
+            blob.upload_blob(f, overwrite=True, standard_blob_tier=StandardBlobTier.COOL)
+        return blob.url
+
+    def download(self, key: str, dest: Path) -> None:
+        blob = self.container.get_blob_client(self._blob_key(key))
+        dest.write_bytes(blob.download_blob().readall())
 
 
 def tier_file(cold: ColdFile, volume_root: Path, target: TierTarget) -> Path:

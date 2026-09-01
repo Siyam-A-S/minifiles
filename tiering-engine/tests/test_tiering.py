@@ -48,6 +48,22 @@ def test_tier_and_rehydrate_roundtrip(tmp_path):
     assert not stub_path.exists()
 
 
+def test_rehydrate_all_restores_every_stub(tmp_path):
+    from app.main import run_rehydrate
+
+    vol = tmp_path / "vol"
+    contents = {f"f{i}.txt": f"data-{i}".encode() for i in range(3)}
+    for name, data in contents.items():
+        _make_file(vol, name, data, age_days=60)
+    target = LocalArchiveTarget(tmp_path / "archive")
+
+    assert run_scan(vol, target, cold_after_seconds=30 * DAY)[0] == 3
+    assert run_rehydrate(vol, target) == 3
+    for name, data in contents.items():
+        assert (vol / name).read_bytes() == data
+    assert not list(vol.rglob("*.minifiles-tiered.json"))
+
+
 def test_rescan_is_idempotent(tmp_path):
     vol = tmp_path / "vol"
     _make_file(vol, "cold.txt", b"old", age_days=60)

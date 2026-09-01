@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# M1 acceptance (docs/roadmap.md): create a volume via the API, mount its NFS
+# M1 acceptance: create a volume via the API, mount its NFS
 # export from a client pod, write+read a file, delete the volume, verify the
 # PVC is gone. Prints PASS or fails loudly.
 set -euo pipefail

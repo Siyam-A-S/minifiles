@@ -36,7 +36,7 @@ enough to run on a single-node AKS cluster.
 | `data-plane/` | NFS-godzilla — the per-volume NFS server image: userspace, NFSv4-only, unprivileged (built on nfs-ganesha) |
 | `deploy/kind/` | Local dev cluster config |
 | `deploy/k8s/` | Kustomize manifests: base + `dev` (kind) and `azure` (AKS) overlays |
-| `docs/` | Architecture, roadmap with milestone acceptance criteria, Azure cost guardrails |
+| `deploy/terraform/` | Azure infrastructure for the tiering target (resource group, storage account, container) |
 
 ## Quickstart (day one, no Kubernetes needed)
 
@@ -69,8 +69,8 @@ Actions workflow runs the same script on a real VM.
 
 ## Roadmap
 
-Milestones with acceptance criteria live in [docs/roadmap.md](docs/roadmap.md).
-Short version: **M0** scaffold (this) → **M1** control plane provisions real NFS
-pods on kind → **M2** tiering engine moves cold data to Azure Blob and rehydrates
-on access → **M3** AKS + GitOps (Argo CD) + Prometheus/Grafana → **M4** chaos
-tests and a load-test writeup.
+**M0** scaffold ✓ → **M1** control plane provisions real NFS pods on
+Kubernetes, verified end-to-end in CI ✓ → **M2** tiering engine moves cold
+data to Azure Blob (cool tier) and rehydrates with checksum verification
+(core ✓; in-cluster rehydrate API in progress) → **M3** AKS + GitOps
+(Argo CD) + Prometheus/Grafana → **M4** chaos tests and a load-test writeup.
