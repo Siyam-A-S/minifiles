@@ -1,0 +1,49 @@
+name: deploy
+
+# GitOps pipeline: build and push images to ACR tagged with the git sha, then
+# bump the azure overlay to that sha ([skip ci] commit). Argo CD watches the
+# overlay and rolls AKS — no manual kubectl anywhere.
+on:
+  push:
+    branches: [main]
+
+concurrency: deploy-main
+
+env:
+  ACR_NAME: minifilesacrxw2sijbw
+  ACR: minifilesacrxw2sijbw.azurecr.io
+
+jobs:
+  build-push-bump:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - run: az acr login --name $ACR_NAME
+      - name: Build and push images
+        run: |
+          docker build -t "$ACR/minifiles/control-plane:${{ github.sha }}" control-plane
+          docker build -t "$ACR/minifiles/tiering-engine:${{ github.sha }}" tiering-engine
+          docker build -t "$ACR/minifiles/nfs-godzilla:${{ github.sha }}" data-plane
+          docker push "$ACR/minifiles/control-plane:${{ github.sha }}"
+          docker push "$ACR/minifiles/tiering-engine:${{ github.sha }}"
+          docker push "$ACR/minifiles/nfs-godzilla:${{ github.sha }}"
+      - name: Bump azure overlay to this sha
+        run: |
+          sed -i -E "s|(minifilesacrxw2sijbw\.azurecr\.io/minifiles/[a-z-]+:)[A-Za-z0-9]+|\1${{ github.sha }}|g" \
+            deploy/k8s/overlays/azure/kustomization.yaml \
+            deploy/k8s/overlays/azure/configmap-azure.yaml
+          sed -i -E "s|newTag: .*|newTag: ${{ github.sha }}|" \
+            deploy/k8s/overlays/azure/kustomization.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git commit -am "GitOps: deploy ${{ github.sha }} [skip ci]"; then
+            git push
+          else
+            echo "overlay already at this sha"
+          fi

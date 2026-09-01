@@ -40,5 +40,11 @@ accept-m1:
 accept-m2:
 	bash scripts/accept-m2.sh
 
+accept-m2-incluster:
+	bash scripts/accept-m2-incluster.sh
+
+accept-m3:
+	bash scripts/accept-m3.sh
+
 destroy:
 	kind delete cluster --name minifiles

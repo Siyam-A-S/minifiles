@@ -30,6 +30,10 @@ class Provisioner(Protocol):
 
     def finalize_delete(self, volume: Volume) -> None: ...
 
+    def rehydrate(self, volume: Volume) -> str:
+        """Start restoring tiered files; returns an identifier for the task."""
+        ...
+
 
 class InMemoryProvisioner:
     """Instant transitions; used in tests and day-one local dev."""
@@ -46,6 +50,9 @@ class InMemoryProvisioner:
 
     def finalize_delete(self, volume: Volume) -> None:
         pass
+
+    def rehydrate(self, volume: Volume) -> str:
+        return "rehydrate-inline"  # no data plane, nothing to restore
 
 
 class KubernetesProvisioner:
@@ -88,6 +95,11 @@ class KubernetesProvisioner:
     def deprovision(self, volume: Volume) -> None:
         volume.state = VolumeState.DELETING
         self.kube.delete_volume_resources(volume.id)
+
+    def rehydrate(self, volume: Volume) -> str:
+        # A k8s Job mounts the volume's PVC and runs the tiering engine in
+        # rehydrate mode (see kube.build_rehydrate_job).
+        return self.kube.create_rehydrate_job(volume)
 
     def finalize_delete(self, volume: Volume) -> None:
         deadline = time.monotonic() + self.timeout_s

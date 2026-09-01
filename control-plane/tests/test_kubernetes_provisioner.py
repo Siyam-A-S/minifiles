@@ -1,4 +1,10 @@
-from app.kube import VOLUME_ID_LABEL, build_service, build_statefulset
+from app.kube import (
+    VOLUME_ID_LABEL,
+    build_rehydrate_job,
+    build_service,
+    build_statefulset,
+    build_tiering_cronjob,
+)
 from app.models import Volume, VolumeState
 from app.provisioner import KubernetesProvisioner
 
@@ -22,6 +28,11 @@ class FakeKube:
 
     def resources_gone(self, vol_id) -> bool:
         return self.gone
+
+    def create_rehydrate_job(self, volume) -> str:
+        self.rehydrate_jobs = getattr(self, "rehydrate_jobs", [])
+        self.rehydrate_jobs.append(volume.id)
+        return f"rehydrate-{volume.id}-x1y2z"
 
 
 def _provisioner(kube, timeout_s=0.05):
@@ -79,6 +90,13 @@ def test_finalize_delete_times_out():
         _provisioner(kube).finalize_delete(vol)
 
 
+def test_rehydrate_creates_job():
+    kube, vol = FakeKube(), _volume()
+    name = _provisioner(kube).rehydrate(vol)
+    assert name == f"rehydrate-{vol.id}-x1y2z"
+    assert kube.rehydrate_jobs == [vol.id]
+
+
 # -- manifest builders (pure functions, no cluster) -------------------------
 
 
@@ -96,6 +114,30 @@ def test_statefulset_manifest_shape():
     assert container.security_context.capabilities.add == ["DAC_READ_SEARCH"]
     assert container.ports[0].container_port == 2049
     assert container.readiness_probe.tcp_socket.port == 2049
+
+
+def test_tiering_cronjob_manifest_shape():
+    vol = _volume()
+    cj = build_tiering_cronjob(vol)
+    assert cj.metadata.name == f"tier-{vol.id}"
+    assert cj.spec.schedule == "0 * * * *"
+    assert cj.spec.concurrency_policy == "Forbid"
+    pod = cj.spec.job_template.spec.template.spec
+    assert pod.volumes[0].persistent_volume_claim.claim_name == f"data-{vol.id}-0"
+    container = pod.containers[0]
+    assert container.args[0] == "tier"
+    assert f"{vol.id}/" in container.args  # per-volume blob key prefix
+    assert container.env_from[0].secret_ref.name == "minifiles-azure"
+
+
+def test_rehydrate_job_manifest_shape():
+    vol = _volume()
+    job = build_rehydrate_job(vol)
+    assert job.metadata.generate_name == f"rehydrate-{vol.id}-"
+    pod = job.spec.template.spec
+    assert pod.volumes[0].persistent_volume_claim.claim_name == f"data-{vol.id}-0"
+    assert pod.containers[0].args[0] == "rehydrate"
+    assert job.spec.ttl_seconds_after_finished == 600
 
 
 def test_service_manifest_shape():

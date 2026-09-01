@@ -5,3 +5,4 @@ metadata:
   namespace: minifiles
 data:
   MINIFILES_PROVISIONER: "kubernetes"
+  MINIFILES_TIERING_ENABLED: "true"

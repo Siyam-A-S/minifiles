@@ -56,6 +56,14 @@ def test_get_list_delete_roundtrip(client):
     assert client.get(f"/v1/volumes/{vol_id}").status_code == 404
 
 
+def test_rehydrate_endpoint(client):
+    vol_id = _create(client).json()["id"]
+    resp = client.post(f"/v1/volumes/{vol_id}/rehydrate")
+    assert resp.status_code == 202
+    assert resp.json() == {"volume_id": vol_id, "job": "rehydrate-inline"}
+    assert client.post("/v1/volumes/vol-missing/rehydrate").status_code == 404
+
+
 def test_snapshot_lifecycle(client):
     vol_id = _create(client).json()["id"]
     resp = client.post(f"/v1/volumes/{vol_id}/snapshots", json={"name": "snap1"})

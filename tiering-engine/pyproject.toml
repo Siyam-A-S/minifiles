@@ -3,7 +3,7 @@ name = "minifiles-tiering-engine"
 version = "0.1.0"
 description = "MiniFiles tiering engine: cold-data scanner and tier targets"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["prometheus-client>=0.20"]
 
 [project.optional-dependencies]
 azure = ["azure-storage-blob>=12.20"]

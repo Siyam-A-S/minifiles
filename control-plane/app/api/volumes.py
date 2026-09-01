@@ -53,6 +53,17 @@ def delete_volume(volume_id: str, background_tasks: BackgroundTasks) -> Response
     return Response(status_code=204)
 
 
+@router.post("/{volume_id}/rehydrate", status_code=202)
+def rehydrate_volume(volume_id: str) -> dict[str, str]:
+    vol = store.get_volume(volume_id)
+    if vol is None:
+        raise HTTPException(404, "volume not found")
+    if vol.state != VolumeState.AVAILABLE:
+        raise HTTPException(409, f"volume is {vol.state}, not available")
+    job = get_provisioner().rehydrate(vol)
+    return {"volume_id": vol.id, "job": job}
+
+
 def _finish_delete(provisioner: Provisioner, vol: Volume) -> None:
     # On TimeoutError the volume stays in the store as DELETING so the client
     # can observe the stuck state and retry the DELETE.

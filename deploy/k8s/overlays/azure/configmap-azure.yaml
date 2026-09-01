@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: control-plane-config
+  namespace: minifiles
+data:
+  MINIFILES_PROVISIONER: "kubernetes"
+  MINIFILES_TIERING_ENABLED: "true"
+  MINIFILES_STORAGE_CLASS: "managed-csi"
+  # data-plane images come from config (not pod specs), so the deploy
+  # workflow bumps these tags too
+  MINIFILES_NFS_IMAGE: "minifilesacrxw2sijbw.azurecr.io/minifiles/nfs-godzilla:initial"
+  MINIFILES_TIERING_IMAGE: "minifilesacrxw2sijbw.azurecr.io/minifiles/tiering-engine:initial"
+  MINIFILES_PUSHGATEWAY_URL: "http://pushgateway-prometheus-pushgateway.monitoring.svc:9091"

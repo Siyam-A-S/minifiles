@@ -63,6 +63,37 @@ def make_target(args: argparse.Namespace) -> TierTarget:
     return LocalArchiveTarget(args.archive_dir)
 
 
+def push_metrics(command: str, volume_key: str, files: int, bytes_: int, duration_s: float) -> None:
+    """Push per-run stats to a Pushgateway when configured (batch jobs can't
+    be scraped). Failures are logged, never fatal — metrics must not fail a
+    tiering run."""
+    url = os.environ.get("MINIFILES_PUSHGATEWAY_URL")
+    if not url:
+        return
+    import time
+
+    from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+
+    reg = CollectorRegistry()
+    Gauge("minifiles_tiering_last_files", "Files handled by the last run", registry=reg).set(files)
+    Gauge("minifiles_tiering_last_bytes", "Bytes handled by the last run", registry=reg).set(bytes_)
+    Gauge(
+        "minifiles_tiering_last_duration_seconds", "Duration of the last run", registry=reg
+    ).set(duration_s)
+    Gauge(
+        "minifiles_tiering_last_success_timestamp", "Unix time of the last success", registry=reg
+    ).set(time.time())
+    try:
+        push_to_gateway(
+            url,
+            job=f"minifiles-tiering-{command}",
+            grouping_key={"volume": volume_key or "unscoped"},
+            registry=reg,
+        )
+    except Exception:  # best-effort by design
+        log.exception("pushgateway push failed (non-fatal)")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["tier", "rehydrate"])
@@ -75,12 +106,19 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO)
     target = make_target(args)
+    import time as _time
+
+    start = _time.monotonic()
     if args.command == "tier":
         files, bytes_ = run_scan(args.volume_root, target, args.cold_after_days * 86400)
         log.info("tiered %d files, %d bytes", files, bytes_)
     else:
-        restored = run_rehydrate(args.volume_root, target)
-        log.info("rehydrated %d files", restored)
+        files = run_rehydrate(args.volume_root, target)
+        bytes_ = 0
+        log.info("rehydrated %d files", files)
+    push_metrics(
+        args.command, args.key_prefix.strip("/"), files, bytes_, _time.monotonic() - start
+    )
 
 
 if __name__ == "__main__":

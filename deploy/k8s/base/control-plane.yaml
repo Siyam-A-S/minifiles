@@ -52,11 +52,14 @@ kind: Service
 metadata:
   name: control-plane
   namespace: minifiles
+  labels:
+    app: control-plane  # ServiceMonitor selects services by label
 spec:
   selector:
     app: control-plane
   ports:
-    - port: 8000
+    - name: http  # named so the ServiceMonitor can reference it
+      port: 8000
       targetPort: 8000
 ---
 apiVersion: v1
@@ -71,3 +74,9 @@ data:
   MINIFILES_NFS_IMAGE: "minifiles/nfs-godzilla:dev"
   MINIFILES_STORAGE_CLASS: "standard"
   MINIFILES_PROVISION_TIMEOUT_S: "120"
+  MINIFILES_TIERING_ENABLED: "false"  # dev overlay enables; needs the Azure secret
+  MINIFILES_TIERING_IMAGE: "minifiles/tiering-engine:dev"
+  MINIFILES_TIERING_SCHEDULE: "0 * * * *"
+  MINIFILES_COLD_AFTER_DAYS: "30"
+  MINIFILES_AZURE_SECRET_NAME: "minifiles-azure"
+  MINIFILES_PUSHGATEWAY_URL: ""  # azure overlay points this at the monitoring stack

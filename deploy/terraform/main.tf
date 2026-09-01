@@ -60,6 +60,56 @@ resource "azurerm_storage_container" "tiered" {
   container_access_type = "private"
 }
 
+# --- M3: registry + cluster -------------------------------------------------
+
+resource "azurerm_container_registry" "acr" {
+  name                = "minifilesacr${random_string.sa_suffix.result}"
+  resource_group_name = azurerm_resource_group.minifiles.name
+  location            = azurerm_resource_group.minifiles.location
+  sku                 = "Basic"
+  admin_enabled       = false # AKS pulls via managed identity, CI via service principal
+}
+
+resource "azurerm_kubernetes_cluster" "aks" {
+  name                = "minifiles-aks"
+  resource_group_name = azurerm_resource_group.minifiles.name
+  location            = azurerm_resource_group.minifiles.location
+  dns_prefix          = "minifiles"
+
+  default_node_pool {
+    name       = "system"
+    node_count = 1
+    vm_size    = "Standard_D2as_v6" # 2 vCPU / 8 GiB: fits argo + monitoring + workloads (B-series not allowed in this subscription)
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+}
+
+resource "azurerm_role_assignment" "aks_pulls_acr" {
+  principal_id                     = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
+  role_definition_name             = "AcrPull"
+  scope                            = azurerm_container_registry.acr.id
+  skip_service_principal_aad_check = true
+}
+
+output "acr_login_server" {
+  value = azurerm_container_registry.acr.login_server
+}
+
+output "acr_id" {
+  value = azurerm_container_registry.acr.id
+}
+
+output "aks_name" {
+  value = azurerm_kubernetes_cluster.aks.name
+}
+
+output "resource_group" {
+  value = azurerm_resource_group.minifiles.name
+}
+
 output "storage_account_name" {
   value = azurerm_storage_account.tiering.name
 }

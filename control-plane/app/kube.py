@@ -90,6 +90,100 @@ def build_statefulset(volume: Volume) -> client.V1StatefulSet:
     )
 
 
+def _pvc_name(vol_id: str) -> str:
+    # volumeClaimTemplate "data" on StatefulSet <vol_id>, replica 0
+    return f"data-{vol_id}-0"
+
+
+def _tiering_pod_spec(volume: Volume, args: list[str]) -> client.V1PodSpec:
+    """Pod template shared by the tiering CronJob and rehydrate Jobs: the
+    tiering-engine image with the volume's PVC mounted at /mnt/vol and Azure
+    credentials from the tiering Secret. Mounting the RWO PVC alongside the
+    NFS server pod requires same-node scheduling — trivially true on the
+    single-node dev/CI clusters; multi-node needs pod affinity (M3)."""
+    return client.V1PodSpec(
+        restart_policy="OnFailure",
+        containers=[
+            client.V1Container(
+                name="tiering-engine",
+                image=settings.tiering_image,
+                args=args,
+                env_from=[
+                    client.V1EnvFromSource(
+                        secret_ref=client.V1SecretEnvSource(name=settings.azure_secret_name)
+                    )
+                ],
+                env=[
+                    client.V1EnvVar(
+                        name="MINIFILES_PUSHGATEWAY_URL", value=settings.pushgateway_url
+                    )
+                ],
+                volume_mounts=[client.V1VolumeMount(name="vol", mount_path="/mnt/vol")],
+                resources=client.V1ResourceRequirements(
+                    requests={"cpu": "50m", "memory": "64Mi"},
+                    limits={"cpu": "500m", "memory": "256Mi"},
+                ),
+            )
+        ],
+        volumes=[
+            client.V1Volume(
+                name="vol",
+                persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
+                    claim_name=_pvc_name(volume.id)
+                ),
+            )
+        ],
+    )
+
+
+def build_tiering_cronjob(volume: Volume) -> client.V1CronJob:
+    args = [
+        "tier",
+        "/mnt/vol",
+        "--target",
+        "azure",
+        "--key-prefix",
+        f"{volume.id}/",
+        "--cold-after-days",
+        str(settings.cold_after_days),
+    ]
+    return client.V1CronJob(
+        metadata=client.V1ObjectMeta(name=f"tier-{volume.id}", labels=_labels(volume.id)),
+        spec=client.V1CronJobSpec(
+            schedule=settings.tiering_schedule,
+            concurrency_policy="Forbid",  # scans are idempotent but need not overlap
+            job_template=client.V1JobTemplateSpec(
+                metadata=client.V1ObjectMeta(labels=_labels(volume.id)),
+                spec=client.V1JobSpec(
+                    backoff_limit=2,
+                    ttl_seconds_after_finished=3600,
+                    template=client.V1PodTemplateSpec(
+                        metadata=client.V1ObjectMeta(labels=_labels(volume.id)),
+                        spec=_tiering_pod_spec(volume, args),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+def build_rehydrate_job(volume: Volume) -> client.V1Job:
+    args = ["rehydrate", "/mnt/vol", "--target", "azure", "--key-prefix", f"{volume.id}/"]
+    return client.V1Job(
+        metadata=client.V1ObjectMeta(
+            generate_name=f"rehydrate-{volume.id}-", labels=_labels(volume.id)
+        ),
+        spec=client.V1JobSpec(
+            backoff_limit=2,
+            ttl_seconds_after_finished=600,
+            template=client.V1PodTemplateSpec(
+                metadata=client.V1ObjectMeta(labels=_labels(volume.id)),
+                spec=_tiering_pod_spec(volume, args),
+            ),
+        ),
+    )
+
+
 class KubeClient:
     def __init__(self, namespace: str | None = None) -> None:
         try:
@@ -99,23 +193,36 @@ class KubeClient:
         self.namespace = namespace or settings.namespace
         self.apps = client.AppsV1Api()
         self.core = client.CoreV1Api()
+        self.batch = client.BatchV1Api()
 
     def apply_volume_resources(self, volume: Volume) -> None:
-        for create, manifest in (
+        creates = [
             (self.core.create_namespaced_service, build_service(volume)),
             (self.apps.create_namespaced_stateful_set, build_statefulset(volume)),
-        ):
+        ]
+        if settings.tiering_enabled:
+            creates.append((self.batch.create_namespaced_cron_job, build_tiering_cronjob(volume)))
+        for create, manifest in creates:
             try:
                 create(self.namespace, manifest)
             except ApiException as exc:
                 if exc.status != 409:  # already exists: provision retry, fine
                     raise
 
+    def create_rehydrate_job(self, volume: Volume) -> str:
+        job = self.batch.create_namespaced_job(self.namespace, build_rehydrate_job(volume))
+        return job.metadata.name
+
     def delete_volume_resources(self, vol_id: str) -> None:
         selector = f"{VOLUME_ID_LABEL}={vol_id}"
         for delete in (
             lambda: self.apps.delete_namespaced_stateful_set(vol_id, self.namespace),
             lambda: self.core.delete_namespaced_service(vol_id, self.namespace),
+            lambda: self.batch.delete_namespaced_cron_job(f"tier-{vol_id}", self.namespace),
+            # Background propagation so job pods are reaped with their jobs
+            lambda: self.batch.delete_collection_namespaced_job(
+                self.namespace, label_selector=selector, propagation_policy="Background"
+            ),
             # volumeClaimTemplate PVCs survive StatefulSet deletion; reap by label
             lambda: self.core.delete_collection_namespaced_persistent_volume_claim(
                 self.namespace, label_selector=selector
