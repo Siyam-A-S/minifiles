@@ -12,4 +12,4 @@ patches:
 images:
   - name: minifiles/control-plane
     newName: minifilesacrxw2sijbw.azurecr.io/minifiles/control-plane
-    newTag: 487c6d9d559c4cccb1fbca431faa6550b3035d5d
+    newTag: 2eacf4c5101ef3b600b0b6f07aef7b4894f69cd7

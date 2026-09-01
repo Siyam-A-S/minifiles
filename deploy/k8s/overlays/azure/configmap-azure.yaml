@@ -9,6 +9,6 @@ data:
   MINIFILES_STORAGE_CLASS: "managed-csi"
   # data-plane images come from config (not pod specs), so the deploy
   # workflow bumps these tags too
-  MINIFILES_NFS_IMAGE: "minifilesacrxw2sijbw.azurecr.io/minifiles/nfs-godzilla:487c6d9d559c4cccb1fbca431faa6550b3035d5d"
-  MINIFILES_TIERING_IMAGE: "minifilesacrxw2sijbw.azurecr.io/minifiles/tiering-engine:487c6d9d559c4cccb1fbca431faa6550b3035d5d"
+  MINIFILES_NFS_IMAGE: "minifilesacrxw2sijbw.azurecr.io/minifiles/nfs-godzilla:2eacf4c5101ef3b600b0b6f07aef7b4894f69cd7"
+  MINIFILES_TIERING_IMAGE: "minifilesacrxw2sijbw.azurecr.io/minifiles/tiering-engine:2eacf4c5101ef3b600b0b6f07aef7b4894f69cd7"
   MINIFILES_PUSHGATEWAY_URL: "http://pushgateway-prometheus-pushgateway.monitoring.svc:9091"
